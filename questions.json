@@ -1,0 +1,22 @@
+[
+  {
+    "question": "What is Vso?",
+    "category": "factual"
+  },
+  {
+    "question": "Explain the four forces of flight.",
+    "category": "factual"
+  },
+  {
+    "question": "What happens if the center of gravity is too far aft?",
+    "category": "reasoning"
+  },
+  {
+    "question": "Describe the procedure for engine failure during takeoff run.",
+    "category": "applied"
+  },
+  {
+    "question": "How does density altitude affect takeoff performance?",
+    "category": "reasoning"
+  }
+]

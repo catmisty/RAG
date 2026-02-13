@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # The Backend API Service
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app  # Mount current directory to allow live code updates and index sharing
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - ingest  # Ensure ingestion runs (or at least image is built)
+
+  # The Streamlit Frontend Service
+  frontend:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    command: streamlit run streamlit_app.py
+    depends_on:
+      - api
+
+  # Optional: One-off ingestion service
+  ingest:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    # Run ingestion and exit. 
+    # NOTE: You only need to run this if you haven't ingested data locally yet.
+    # docker-compose up ingest
+    command: python ingest.py
+    profiles: ["tools"] # Don't start automatically with 'up' unless specified

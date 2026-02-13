@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviation RAG Chatbot</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --chat-bg: #ffffff;
+            --user-msg: #eff6ff;
+            --bot-msg: #f1f5f9;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: #1e293b;
+        }
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .message {
+            display: flex;
+            gap: 1rem;
+            max-width: 80%;
+        }
+        .message.user {
+            margin-left: auto;
+            flex-direction: row-reverse;
+        }
+        .bubble {
+            padding: 1rem 1.25rem;
+            border-radius: 1rem;
+            line-height: 1.5;
+            position: relative;
+        }
+        .user .bubble {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .bot .bubble {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .citations {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 0.5rem;
+        }
+        .citations strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #475569;
+        }
+        .debug-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        .input-area {
+            background: white;
+            padding: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: center;
+        }
+        .input-wrapper {
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            gap: 1rem;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .chunks {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            display: none;
+        }
+        .chunks.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✈️ Aviation RAG Chatbot</h1>
+        <label class="debug-toggle">
+            <input type="checkbox" id="debugMode" checked> Debug Mode (Show Retrieval)
+        </label>
+    </div>
+
+    <div class="chat-container" id="chat">
+        <div class="message bot">
+            <div class="bubble">
+                Hello! I am your Aviation Assistant. I can answer questions from the provided manuals and textbooks. What would you like to know?
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-wrapper">
+            <input type="text" id="userInput" placeholder="Ask a question (e.g., What is Vso?)..." autocomplete="off">
+            <button onclick="sendMessage()" id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const debugMode = document.getElementById('debugMode');
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Add user message
+            addMessage(text, 'user');
+            input.value = '';
+            input.disabled = true;
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question: text,
+                        debug: debugMode.checked
+                    })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                addBotMessage(data);
+
+            } catch (error) {
+                addMessage('Sorry, something went wrong. Please check if the server is running.', 'bot');
+                console.error(error);
+            } finally {
+                input.disabled = false;
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        }
+
+        function addMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.innerHTML = `<div class="bubble">${text}</div>`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addBotMessage(data) {
+            const div = document.createElement('div');
+            div.className = 'message bot';
+            
+            let content = data.answer;
+            
+            // Add citations
+            if (data.citations && data.citations.length > 0) {
+                content += `
+                    <div class="citations">
+                        <strong>Sources:</strong>
+                        ${data.citations.join('<br>')}
+                    </div>
+                `;
+            }
+
+            // Add debug chunks
+            if (data.retrieved_chunks && data.retrieved_chunks.length > 0) {
+                content += `<div class="chunks visible"><strong>Retrieved Chunks:</strong><br>`;
+                data.retrieved_chunks.forEach((chunk, i) => {
+                    content += `<em>[${i+1}] ${chunk.source} (p${chunk.page}) score: ${chunk.score.toFixed(2)}</em><br>`;
+                });
+                content += `</div>`;
+            }
+
+            div.innerHTML = `<div class="bubble">${content}</div>`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>
